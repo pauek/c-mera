@@ -130,6 +130,14 @@
   (defprettymethod :after struct-definition
     (format stream ";")))
 
+;;; Union
+(with-pp
+    (defprettymethod :before union-definition
+      (format stream "~&~%~aunion " indent))
+
+    (defprettymethod :after union-definition
+      (format stream ";")))
+
 ;;; Declaration list
 ;;; Open and close brackets and increase indent
 ;;; if necessary.
@@ -261,6 +269,7 @@
     (defprettymethod :before infix-expression
       (if (or (eql (top-info) 'infix)
 	      (eql (top-info) 'oref)
+	      (eql (top-info) 'not)
 	      (eql (top-info) 'cast))
 	  (format stream "("))
       (push-info 'infix)
@@ -489,9 +498,11 @@
 (with-pp
 
   (defprettymethod :before not-expression
+    (push-info 'not)
     (format stream "(not "))
 
   (defprettymethod :after not-expression
+    (pop-info)
     (format stream ")")))
 
 ;;; Function-call
