@@ -3,40 +3,48 @@
 
 (in-package :cgen)
 
-(defun read-in (file &optional &key (debug nil))
+(defun read-in (file &key (debug nil))
   "reads cgen file and returns the cgen-ast"
   (push (count-lines file) *chars-per-line*)
   (push file *current-file*)
   (let ((nodes nil)
-	(*readtable* (copy-readtable nil)))
+  	(*readtable* (copy-readtable nil)))
     ;; Starts pre-processing for every symbol with leading space-character
     (set-macro-character #\Space #'pre-process)
     (set-macro-character #\Tab #'pre-process)
-    (set-macro-character #\( #'pre-process2)
+    ;(set-macro-character #\( #'pre-process2)
     ;; Stores line and file inforation in global hash
-    (if debug
-	(set-macro-character #\( #'line-number-reader))
+
+    ;;  FIX THIS IF NEEDED
+    ;; (if debug
+    ;; 	(set-macro-character #\( #'pre-process2)
+    ;; 	(set-macro-character #\( #'pre-process3))
+    	;(set-macro-character #\( #'line-number-reader))
  
     ;;TODO repair
      ;;(sb-impl::set-cat-entry #\^ sb-impl::+char-attr-single-escape+)
-     ;;(sb-impl::set-cmt-entry #\^ nil)
-     ;;(sb-impl::set-cat-entry #\\ sb-impl::+char-attr-constituent+)
+    ;;(sb-impl::set-cmt-entry #\^ nil)
+    ;;(sb-impl::set-cat-entry #\\ sb-impl::+char-attr-constituent+)
     
-    (setf (readtable-case *readtable*) :invert) ;'preserve' original case
-      (with-open-file (in file)
-	(loop for s-expr = (read in nil nil nil)
-	   while s-expr do
-	     (let ((evaluated (eval s-expr)))
-	       (cond
-		 ((listp evaluated)
-		  (if (gethash (class-of (first evaluated)) *node*)
-		      (setf nodes (append nodes evaluated))))
-		 (t
-		  (if (gethash (class-of evaluated) *node*)
-		      (setf nodes (append nodes (list  evaluated)))))))))
-      (pop *current-file*)
-      (pop *chars-per-line*)
-      nodes))
+    (handler-case
+	(progn
+	  (setf (readtable-case *readtable*) :invert) ;'preserve' original case
+	  (with-open-file (in file)
+	    (loop for s-expr = (read in nil nil nil)
+	       while s-expr do
+		 (let ((evaluated (eval s-expr)))
+		   (cond
+		     ((listp evaluated)
+		      (if (gethash (class-of (first evaluated)) *node*)
+			  (setf nodes (append nodes evaluated))))
+		     (t
+		      (if (gethash (class-of evaluated) *node*)
+			  (setf nodes (append nodes (list  evaluated))))))))))
+    (error (err) (format *error-output* "~a" err)
+	 (ccl::quit)))
+    (pop *current-file*)
+    (pop *chars-per-line*)
+    nodes))
 
 (defun add-cmdline-definition (str)
   (let* ((=pos (position #\= str))
@@ -136,6 +144,7 @@
 	  (debug (net.didierverna.clon:getopt :short-name "g"))
 	  (verb  (net.didierverna.clon:getopt :short-name "v"))
 	  (args  (net.didierverna.clon:remainder)))
+      (declare (ignore verb))
       (if in (push in args))
       (net.didierverna.clon:do-cmdline-options (option name value source)
 	(cond ((s= name "h" "help")
@@ -171,7 +180,8 @@
 		 (if-block (make-instance 'if-blocker))
 		 ;(debug-tree (make-instance 'debug-traverser))
 		 (pprint (make-instance 'pretty-printer)))
-	     (setf tree (build-ast (read-in input :debug debug)))
+	     ;;(setf tree (build-ast (read-in input :debug debug)))
+	     (setf tree (build-ast (read-in input)))
 	     
 	     ,@extras
 	      (traverser nodelist-cleanup tree 0)
@@ -217,7 +227,9 @@
   (labels ((dump-start ()
 	     (in-package :cg-user)
 	     (setf (readtable-case *readtable*) :invert)
-	     (cgen::script-command sb-ext:*posix-argv*)))
+	     #+sbcl (cgen::script-command sb-ext:*posix-argv*)
+	     #+clozure (cgen::script-command ccl::*command-line-argument-list*)
+	     ))
     (net.didierverna.clon:dump x dump-start)))
 
 

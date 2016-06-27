@@ -5,23 +5,23 @@
 (defmacro get-body (arg-list)
   "returns the symbol of the &body or &rest parameter"
   `(rest (member-if #'(lambda (x) (or (eql '&body x)
-				      (eql '&rest x)))
-		    ,arg-list)))
+  				      (eql '&rest x)))
+  		    ,arg-list)))
 
 (defmacro get-args (arg-list)
-  "returns the parameters without keys and the body/rest parameter"
+  "returns the parameters without keys and the body/rest parameter"     
   `(if (get-body ,arg-list)
        (reverse (rest (member-if #'(lambda (x) (or (eql '&body x)
-						   (eql '&rest x)))
-				 (reverse
-				  (remove '&environment
-					  (remove '&optional
-						  (remove '&key 
-							  ,arg-list)))))))
+  						   (eql '&rest x)))
+  				 (reverse
+  				  (remove '&environment
+  					  (remove '&optional
+  						  (remove '&key 
+  							  ,arg-list)))))))
        (remove '&environment
-	       (remove '&optional
-		       (remove '&key
-			       ,arg-list)))))
+  	       (remove '&optional
+  		       (remove '&key
+  			       ,arg-list)))))
 
 (defun clear (sym chars)
   "remove specific chars from symbol"
@@ -90,6 +90,8 @@
       (push `(,nchars ,nlines) chars-per-line)
       (reverse chars-per-line))))
 
+(defparameter *chars-per-line* '()) ;; STack of stream-to-line mapppings
+
 ;;; Must be prepared with count-lines before usage.
 (defun get-line (stream)
   "get the current line number of the stream"
@@ -98,20 +100,20 @@
 			    (first *chars-per-line*))))))
 
 ;;; Switch to the cgen-reader in the repl
-(defparameter *readtable-backup* (copy-readtable nil))
-(defparameter *cgen-reader* 'cl)
+;; (defparameter *readtable-backup* (copy-readtable nil))
+;; (defparameter *cgen-reader* 'cl)
 
-(defun switch-reader (&key (debug nil))
-  "switch to the cgen-reader and back"
-  (cond ((eql *cgen-reader* 'cl)
-	 (setf *cgen-reader* 'cgen)
-	 (if debug
-	     (set-macro-character #\( #'line-number-reader))
-	 (set-macro-character #\Space #'pre-process)
-	 (setf (readtable-case *readtable*) :invert))
-	((eql *cgen-reader* 'cgen)
-	 (setf *cgen-reader* 'cl)
-	 (setf *readtable* *readtable-backup*))))
+;; (defun switch-reader (&key (debug nil))
+;;   "switch to the cgen-reader and back"
+;;   (cond ((eql *cgen-reader* 'cl)
+;; 	 (setf *cgen-reader* 'cgen)
+;; 	 (if debug
+;; 	     (set-macro-character #\( #'line-number-reader))
+;; 	 (set-macro-character #\Space #'pre-process)
+;; 	 (setf (readtable-case *readtable*) :invert))
+;; 	((eql *cgen-reader* 'cgen)
+;; 	 (setf *cgen-reader* 'cl)
+;; 	 (setf *readtable* *readtable-backup*))))
 
 ;;; be verbose and print info text for 'using functions..' and so on
 (defparameter *be-verbose* nil)

@@ -5,7 +5,7 @@
 (in-package :cgen)
 
 ;;;Used as a global pre-processor for all symbols in cgen-code
-(defun pre-parse (item &optional &key quote-it)
+(defun pre-parse (item &key (quote-it nil))
   "starts the appropriate preprocessing for the item"
   (cond
     ((symbolp item)
@@ -40,7 +40,7 @@
 	    (cond
 		  ((and (eql f-pos (- (length name-string) 1)) (or (eql num-pos 0)
 														   (eql dot-pos2 0)))
-		   (read-float item quote-it))
+		   (read-float item))
 	      ((pos-cond dot-pos arrow-pos bracket-pos) (split-oref item quote-it))
 	      ((pos-cond arrow-pos dot-pos bracket-pos) (split-pref item quote-it))
 	      ((pos-cond bracket-pos arrow-pos dot-pos) (split-aref item quote-it))
@@ -52,7 +52,7 @@
 			 item)))))))))
     (t item)))
 
-(defun read-float (item quote-it)
+(defun read-float (item)
   "perace correct float print"
   (let* ((name (symbol-name item))
 		 (len (length name)))
@@ -146,8 +146,23 @@
 
 (defun pre-process2 (stream char)
   "pre-parse continued"
+  (let ((peek (peek-char nil stream nil nil nil))y
+	(list (line-number-reader stream char)))
+    (if (not (or (eql peek #\()
+		 (eql peek #\))
+		 (eql peek #\Space)
+		 (eql peek #\Newline)
+		 (eql peek #\Tab)))
+	(append (list (pre-parse (first list))) (rest list))
+	list)))
+
+(defun pre-process3 (stream char)
+  "pre-parse continued"
+  (declare (ignore char))
   (let ((peek (peek-char nil stream nil nil nil))
-	(list (line-number-reader (stream char))))
+	#+clozure (list (ccl::read-list stream))
+	#+sbcl (list (sb-impl::read-list stream char))
+	)
     (if (not (or (eql peek #\()
 		 (eql peek #\))
 		 (eql peek #\Space)
@@ -159,9 +174,28 @@
 ;;;Line numbering for debug-mode
 (defun line-number-reader (stream char)
   "stores the line and file information of the current list in global hashes"
+  (declare (ignorable char))
   (let ((line (get-line stream))
-	(list (sb-impl::read-list stream char))
+	;;TODO fix for clozrue /sbcl
+	#+sbcl (list (sb-impl::read-list stream char))
+	#+clozure (list (ccl::read-list stream))
 	(file (first *current-file*)))
     (setf (gethash list *line-hash*) line)
     (setf (gethash list *file-hash*) file)
     list))
+
+;;; Switch to the cgen-reader in the repl
+(defparameter *readtable-backup* (copy-readtable nil))
+(defparameter *cgen-reader* 'cl)
+
+(defun switch-reader (&key (debug nil))
+  "switch to the cgen-reader and back"
+  (cond ((eql *cgen-reader* 'cl)
+	 (setf *cgen-reader* 'cgen)
+	 (if debug
+	     (set-macro-character #\( #'line-number-reader))
+	 (set-macro-character #\Space #'pre-process)
+	 (setf (readtable-case *readtable*) :invert))
+	((eql *cgen-reader* 'cgen)
+	 (setf *cgen-reader* 'cl)
+	 (setf *readtable* *readtable-backup*))))

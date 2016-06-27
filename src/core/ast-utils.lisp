@@ -27,7 +27,8 @@
 (defparameter *with-cgen-declaration* nil)
 
 (defparameter *current-file* '())   ; Stack of files in process
-(defparameter *chars-per-line* '()) ; Stack of Stream to Line mapping
+;; moved for clozure
+;;(defparameter *chars-per-line* '()) ; Stack of Stream to Line mapping
 
 ;;; Contains mapping of S-Expr to line and file informations.
 (defparameter *line-hash* (make-hash-table :test 'equal))
@@ -95,18 +96,22 @@
 				  (error "false handler call (~s) for: ~s" ',name ,(first arg-list)))) body)
 		    body)))
       `(let ((macro-args ',macro-args)
-	     (macro-body ',macro-body))
+	     (macro-body ',macro-body))	 
 	 (loop for i in ',tag-list do
 	      (setf (gethash i *node-macro-list*)
 		    `(defnodemacro2 ,i ,',macro-param
-		       `(make-node (list ',',i ,,@macro-args ,@,@macro-body)))))
+		       ;; TODO make nicer (clozure has problems with ,@,@)
+		       (if ,@macro-body
+			   `(make-node (list ',',i ,,@macro-args ,@,@macro-body))
+			   `(make-node (list ',',i ,,@macro-args))))))
+	 
 	 (register-handler ',tag-list ',name (lambda (,gen-args)
 			     (destructuring-bind ,arg-list ,gen-args
 			       .,body)))))))
 
 
 ;;; Defelement combines the definition of a node and a handler.
-(defmacro %defelement (name tag-list slot-list arg-list body &optional &key (superclasses '(node)))
+(defmacro %defelement (name tag-list slot-list arg-list body &key (superclasses '(node)))
   "define node '<name>' and '<name>-handler' handler"
   `(progn
      (loop for i in ',tag-list do
@@ -127,12 +132,12 @@
   `(%defelement ,name ,tag-list ,slot-list ,arg-list ,body :superclasses (statement)))
 
 ;;; Used to define macros in the cg-user package for c-nodes. 
-(defmacro %defnodemacro (name lambda-list body &optional &key special) 
+(defmacro %defnodemacro (name lambda-list body &key (special nil)) 
   "define specific macro for node '<name>'"
   (let ((macro-body (get-body lambda-list))
 	(macro-args (get-args lambda-list)))
-    (let ((line nil) ;line ``(gethash '(,',(intern (format nil "~a" name) :cg-user) ,,@macro-args ,@,@macro-body) *line-hash*))
-	  (file nil)) ;;``(gethash '(,',(intern (format nil "~a" name) :cg-user) ,,@macro-args ,@,@macro-body) *file-hash*)))
+    (let ((line nil );;``(gethash '(,',(intern (format nil "~a" name) :cg-user) ,,@macro-args ,@,@macro-body) *line-hash*))
+	  (file nil));;``(gethash '(,',(intern (format nil "~a" name) :cg-user) ,,@macro-args ,@,@macro-body) *file-hash*)))
       `(progn
 	 ,(if special `(setf (gethash ',name *special-node*) t))
 	 (defmacro ,(intern (format nil "~a" name) :cg-user) ,lambda-list
@@ -214,7 +219,7 @@
 	 (push (pop parameter) qualifiers))
     `(,(reverse qualifiers) ,parameter)))
 
-(defun get-declaration-name (item &optional &key (fp nil))
+(defun get-declaration-name (item &key (fp nil))
   "return the name of a declatation item"
   (destructuring-bind (type name &optional value) (second (split-declaration-item item))
     (declare (ignore type value))

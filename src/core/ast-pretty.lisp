@@ -48,6 +48,7 @@
 (with-pp
 
   (defprettymethod :before compound-statement
+		  
     (if (slot-value item 'brackets)
 	(progn
 	  (if (or (eql (top-info) 'for)
@@ -55,17 +56,17 @@
 		  (eql (top-info) 'if)
 		  (eql (top-info) 'else))
 	      (format stream "{~%")
-	      (format stream "~&~a{~%" indent))
-	  (if (eql (top-info) 'else)
-	      (push-info 'block))))
+	      (format stream "~&~a{~%" indent))))
+    ;; (if (eql (top-info) 'else)
+    ;;     (push-info 'block))))
     ++indent)
 
   (defprettymethod :after compound-statement
-	--indent
+    --indent
     (if (slot-value item 'brackets)
 	(progn
-	  (if (eql (top-info) 'block)
-	      (pop-info))
+	  ;; (if (eql (top-info) 'block)
+	  ;;     (pop-info))
 	  (format stream "~&~a}" indent)))))
 
 ;;; Types

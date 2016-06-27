@@ -50,10 +50,14 @@
 	(fp-names (remove nil (loop for i in parameters collect (get-declaration-name i :fp t)))))
     (let ((lets (loop for i in parameter-names collect `(,i ',i)))
 	  (mlets (loop for i in fp-names collect `(,i (&rest rest) `(funcall ,',i ,@rest)))))
-      (eval `(locally
+      (progn
+	#+sbcl (eval `(locally
 		 (declare (sb-ext:muffle-conditions sb-kernel:redefinition-warning))
 	       (handler-bind ((sb-kernel:redefinition-warning #'muffle-warning))
 		 (defmacro ,name (&rest body) `(cg-user::funcall ,',name ,@body)))))
+	#+clozure (eval `(handler-bind ((style-warning #'muffle-warning))
+			   (defmacro ,name (&rest body) `(cg-user::funcall ,',name ,@body))))
+	)
       (eval `(defparameter ,name ',name))
       `(let ,lets
 	 (declare (ignore ,@fp-names))
@@ -216,14 +220,33 @@
 (loop for key being the hash-keys of *imported-symbols* using (hash-value lambda-list) do
      (let ((lisp-body (get-body lambda-list))
 	   (lisp-args (get-args lambda-list))
-	   (cgen-lambda-list (sb-introspect:function-lambda-list (intern (format nil "~a" key) :cg-user))))
+	   (cgen-lambda-list (swank-backend:arglist (intern (format nil "~a" key) :cg-user))))
+       ;;TODO make impl dependend
+       ;;(cgen-lambda-list (sb-introspect:function-lambda-list (intern (format nil "~a" key) :cg-user))))
+       
+       
        (let ((cgen-body (get-body cgen-lambda-list))
 	     (cgen-args (get-args cgen-lambda-list)))
-	 (push `(,(intern (format nil "~a" key) :cg-user)
-		  ,lambda-list `(,',key ,,@lisp-args ,@,@lisp-body)) *with-lisp-declaration*)
-	 (push `(,(intern (format nil "~a" key) :cg-user)
-		  ,cgen-lambda-list `(,',(intern (format nil "~a" key) :cg-swap)
-					 ,,@cgen-args ,@,@cgen-body)) *with-cgen-declaration*))))
+
+	 ;; #+clozure (setf lisp-args (append (reverse (rest (reverse lisp-args)))
+	 ;; 				   (list (list (first (reverse lisp-args))))))
+	 ;; #+clozure (setf cgen-args (append (reverse (rest (reverse cgen-args)))
+	 ;; 				   (list (list (first (reverse cgen-args))))))
+
+	(push `(,(intern (format nil "~a" key) :cg-user)
+	 	  ,lambda-list (,(if (first lisp-body) 'list* 'list)
+				 ',key ,@lisp-args ,@lisp-body)) *with-lisp-declaration*)
+	(push `(,(intern (format nil "~a" key) :cg-user)
+	 	  ,cgen-lambda-list (,(if (first cgen-body) 'list* 'list)
+				      ',(intern (format nil "~a" key) :cg-swap)
+				      ,@cgen-args ,@cgen-body)) *with-cgen-declaration*))))
+	 	 
+	 ;; #+sbcl (push `(,(intern (format nil "~a" key) :cg-user)
+	 ;; 	  ,lambda-list `(,',key ,,@lisp-args ,@,@lisp-body)) *with-lisp-declaration*)
+	 ;; #+sbcl (push `(,(intern (format nil "~a" key) :cg-user)
+	 ;; 	  ,cgen-lambda-list `(,',(intern (format nil "~a" key) :cg-swap)
+	 ;; 				 ,,@cgen-args ,@,@cgen-body)) *with-cgen-declaration*)
+	 ;; )))
 
 ;;; special functions in cg-user, declared here for reuse in other packages
 (in-package :cg-user)

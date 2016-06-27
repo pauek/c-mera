@@ -16,63 +16,67 @@
 	(pre-parse (read stream nil nil nil))
 	(values))))
 
-(defun sharp-less (stream char arg)
-  (declare (ignore char arg))
-  (let ((input (read-delimited-list #\> stream t)))
-    (cg-user::cintern (format nil "~a<~{~a~^, ~}>" (first input) (rest input)))))
 
-(defun sharp-colon (stream sub-char numarg)
-  (sb-impl::ignore-numarg sub-char numarg)
-  (multiple-value-bind (token escapep colon) (sb-impl::read-extended-token stream)
-    (declare (simple-string token) (ignore escapep))
-    ;(declare (ignore escapep))
-    ;;cl-cookbook:
-    ;;---
-    (let ((tokens (remove "" (loop for i = 0 then (1+ j)
-				 as j = (position #\: token :start i)
-				 collect (subseq token i j)
-				 while j) :test #'string=)))
-      ;;--
-      (labels ((cascade (x) (if (> (length x) 2)
-			      `(cg-user::from-namespace ',(intern (first x)) ,(cascade (rest x)))
-			      `(cg-user::from-namespace ',(intern (first x)) ',(intern (second x))))))
-	(cascade tokens)))))
+;; TODO FIX THIS
+;;;;;;;;;;;;;; template instantiation
+;; (defun sharp-less (stream char arg)
+;;   (declare (ignore char arg))
+;;   (let ((input (read-delimited-list #\> stream t)))
+;;     (cg-user::cintern (format nil "~a<~{~a~^, ~}>" (first input) (rest input)))))
 
-;;; copy from cgen.lisp 
-;;; TODO make extendable for reuse -> class + multi method
-(defun read-in (file &optional &key (debug nil))
-  "reads cgen file and returns the cgen-ast"
-  (push (count-lines file) *chars-per-line*)
-  (push file *current-file*)
-  (let ((nodes nil)
-	(*readtable* (copy-readtable nil)))
-    ;; Starts pre-processing for every symbol with leading space-character
-    (set-dispatch-macro-character #\# #\: #'sharp-colon)
-    (set-macro-character #\Space #'pre-process)
-    (set-macro-character #\Tab #'pre-process)
-    ;; Stores line and file inforation in global hash
-    (if debug
-	(set-macro-character #\( #'line-number-reader))
+;; (defun sharp-colon (stream sub-char numarg)
+;;   (sb-impl::ignore-numarg sub-char numarg)
+;;   (multiple-value-bind (token escapep colon) (sb-impl::read-extended-token stream)
+;;     (declare (simple-string token) (ignore escapep))
+;;     ;(declare (ignore escapep))
+;;     ;;cl-cookbook:
+;;     ;;---
+;;     (let ((tokens (remove "" (loop for i = 0 then (1+ j)
+;; 				 as j = (position #\: token :start i)
+;; 				 collect (subseq token i j)
+;; 				 while j) :test #'string=)))
+;;       ;;--
+;;       (labels ((cascade (x) (if (> (length x) 2)
+;; 			      `(cg-user::from-namespace ',(intern (first x)) ,(cascade (rest x)))
+;; 			      `(cg-user::from-namespace ',(intern (first x)) ',(intern (second x))))))
+;; 	(cascade tokens)))))
 
-    ;; cxx 
-    (set-dispatch-macro-character #\# #\< #'sharp-less)
-    (set-dispatch-macro-character #\# #\: #'sharp-colon)
+;; ;;; copy from cgen.lisp 
+;; ;;; TODO make extendable for reuse -> class + multi method
+;; (defun read-in (file &optional &key (debug nil))
+;;   "reads cgen file and returns the cgen-ast"
+;;   (push (count-lines file) *chars-per-line*)
+;;   (push file *current-file*)
+;;   (let ((nodes nil)
+;; 	(*readtable* (copy-readtable nil)))
+;;     ;; Starts pre-processing for every symbol with leading space-character
+;;     (set-dispatch-macro-character #\# #\: #'sharp-colon)
+;;     (set-macro-character #\Space #'pre-process)
+;;     (set-macro-character #\Tab #'pre-process)
+;;     ;; Stores line and file inforation in global hash
+;;     (if debug
+;; 	(set-macro-character #\( #'line-number-reader))
+
+;;     ;; cxx 
+;;     (set-dispatch-macro-character #\# #\< #'sharp-less)
+;;     (set-dispatch-macro-character #\# #\: #'sharp-colon)
     
-    (setf (readtable-case *readtable*) :invert) ;'preserve' original case
-      (with-open-file (in file)
-	(loop for s-expr = (read in nil nil nil)
-	   while s-expr do
-	     (let ((evaluated (eval s-expr)))
-	       (cond
-		 ((listp evaluated)
-		  (if (gethash (class-of (first evaluated)) *node*)
-		      (setf nodes (append nodes evaluated))))
-		 (t
-		  (if (gethash (class-of evaluated) *node*)
-		      (setf nodes (append nodes (list  evaluated)))))))))
-      (pop *current-file*)
-      (pop *chars-per-line*)
-      nodes))
+;;     (setf (readtable-case *readtable*) :invert) ;'preserve' original case
+;;       (with-open-file (in file)
+;; 	(loop for s-expr = (read in nil nil nil)
+;; 	   while s-expr do
+;; 	     (let ((evaluated (eval s-expr)))
+;; 	       (cond
+;; 		 ((listp evaluated)
+;; 		  (if (gethash (class-of (first evaluated)) *node*)
+;; 		      (setf nodes (append nodes evaluated))))
+;; 		 (t
+;; 		  (if (gethash (class-of evaluated) *node*)
+;; 		      (setf nodes (append nodes (list  evaluated)))))))))
+;;       (pop *current-file*)
+;;       (pop *chars-per-line*)
+;;       nodes))
+;;;;;;;;;;;;;;;;;;;;
 
 ;; pretty-print override
 
@@ -335,7 +339,7 @@
        (format stream ">"))
        ;; (if (eql (top-info) 'template-instantiation)
        ;; 	   (format stream ">")
-       ;; 	   (format stream ">")))
+     ;; 	   (format stream ">")))
      (defproxyprint :after template
        (format stream "<"))
      (defproxyprint :before arguments

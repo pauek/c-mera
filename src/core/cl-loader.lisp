@@ -11,7 +11,7 @@
 
 ;;; These symbols are needed but locked by lisp.
 (cl:defvar *cgen-symbols2* '(array null length min max abs sin cos tan 
-			     fabs class 1- vector))
+			     fabs class 1- vector &body &rest &optional))
 
 (cl:defparameter cgen::*imported-symbols* (cl:make-hash-table))
 
@@ -21,7 +21,10 @@
     ;; Store symbol-name and lambda-list in *imported-symbols* hash (definition happens later)".
     ((cl:eval `(cl:find-if #'(cl:lambda (x) (cl:equal (cl:symbol-name x) (cl:symbol-name ',cl:symbol))) *cgen-symbols*))
      (cl:eval `(cl:setf (cl:gethash ',(cl:intern (cl:format cl:nil "~a" cl:symbol) :common-lisp) cgen::*imported-symbols*) 
-			  ',(sb-introspect:function-lambda-list cl:symbol))))
+			#+sbcl ',(swank-backend:arglist cl:symbol)
+			#+clozure ',(cl:substitute 'cl:&rest 'ccl::&lexpr (swank-backend:arglist cl:symbol))
+			)))
+			;',(sb-introspect:function-lambda-list cl:symbol))))
     ;; Symbols with package-lock but without function-definition
     ((cl:eval `(cl:find-if #'(cl:lambda (x) (cl:equal (cl:symbol-name x) (cl:symbol-name ',cl:symbol))) *cgen-symbols2*))
      ;; Do nothing, skip import..

@@ -5,6 +5,7 @@
       (load quicklisp-init)))
 
 (ql:quickload :net.didierverna.clon)
+(ql:quickload :swank)
 
 (cl:defpackage :cgen
   (:use :common-lisp)
@@ -43,11 +44,32 @@
   (:use :common-lisp :cgen))
 
 (cl:defpackage :cg-user
-  (:import-from :common-lisp :nil)
+  (:use)
+  (:import-from :common-lisp :nil :&body :&rest :&optional)
   (:import-from :cgen :simple-print :switch-reader :flatten)
-  (:export :deflmacro :defun :defmacro :cgen :lisp :cintern :use-functions :use-variables))
+  (:export :deflmacro :defun :defmacro :cgen :lisp :cintern :use-functions :use-variables :symbol-append))
 
-(cl:defpackage :cg-swap)
+(cl:defpackage :cg-swap
+  (:use)
+  ;;#+clozure (:import-from :ccl &lexpr)
+  (:import-from :common-lisp :nil :&body :&rest :&optional))
+
+#+sbcl (asdf:defsystem cgen
+  :name "cgen"
+  :version "0.0.1"
+  :serial t
+  :components ((:file "src/core/cl-loader") ;;cg-user imports
+	       (:file "src/core/utils")
+	       (:file "src/core/ast-utils")
+	       (:file "src/core/ast-nodes")
+	       (:file "src/core/ast-syntax")
+	       (:file "src/core/ast-traverser")
+	       (:file "src/core/ast-pretty")
+	       (:file "src/core/pre-processing")
+	       (:file "src/core/cgen"))
+  
+  :depends-on ("sb-posix" "sb-introspect" "sb-sprof")
+  )
 
 (asdf:defsystem cgen
   :name "cgen"
@@ -62,8 +84,7 @@
 	       (:file "src/core/ast-pretty")
 	       (:file "src/core/pre-processing")
 	       (:file "src/core/cgen"))
-  
-  :depends-on ("sb-posix" "sb-introspect" "sb-sprof"))
+  )
 
 (asdf:defsystem glslgen
   :name "glslgen"

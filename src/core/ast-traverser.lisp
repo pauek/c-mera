@@ -24,7 +24,8 @@
   (with-slots (nodes) item
     (mapcar #'(lambda (x) (traverser travers x level)) nodes)))
 
-(defmethod traverser ((travers t) (item t) level))
+(defmethod traverser ((travers t) (item t) level)
+  (declare (ignore level)))
 
 ;;; Inserts a single proxy-node in the AST.
 (defmacro make-proxy (slot node-type)
@@ -76,7 +77,7 @@
       (let ((tmp (gensym (format nil "proxy-~a-" (first proxy-nodes)))))
 	(setf (gethash (first proxy-nodes) *proxy-node*) tmp)
 	;;for debug/swank, sonst auskommentieren
-	(eval `(defnode ,tmp (proxy) ()))
+	;;(eval `(defnode ,tmp (proxy) ()))
 	;;
 	`(let ((,(first proxy-nodes) ',tmp))
 	     (defnode ,tmp (proxy) ())
@@ -93,11 +94,13 @@
 	 (defmethod traverser
 	     (,class
 	      (item ,(gethash proxy-node *proxy-node*)) level)
+	   (declare (ignorable level))
 	   (with-slots (values subnodes) item ,@body)
 	   (call-next-method)))
-      `(defmethod traverser ,qualifier 
+      `(defmethod traverser ,qualifier
 	 (,class
-	  (item ,(gethash proxy-node *proxy-node*)) level) 
+	  (item ,(gethash proxy-node *proxy-node*)) level)
+	 (declare (ignorable level))
 	 (with-slots (values subnodes) item ,@body))))
 
 
@@ -191,11 +194,13 @@
 	      (defmethod traverser
 		  ((pp pretty-printer) 
 		   (item ,node) level)
+		(declare (ignorable level))
 		(with-slots (values subnodes) item .,body)
 		(call-next-method)))
       `(defmethod traverser ,qualifier 
 	 ((pp pretty-printer) 
-	  (item ,node) level) 
+	  (item ,node) level)
+	 (declare (ignorable level))
 	 (with-slots (values subnodes) item .,body))))
 
 
@@ -262,6 +267,7 @@
 
 ;;; Traverses the tree but checks only the identifier nodes.
 (defmethod traverser ((rn renamer) (item identifier) level)
+  (declare (ignore level))
   (with-slots (identifier) item
     (setf identifier (check-and-get-name rn (intern (symbol-name identifier) :cgen)))))
 
@@ -275,6 +281,7 @@
 
 (defmethod traverser ((db decl-blocker) (item identifier) level)
   "find names, check if in decl-item, save infos on stack in decl-blocker"
+  (declare (ignore level))
   (with-slots (identifier) item
     (with-slots (names delta-names in-decl-item make-block) db
       (if (first in-decl-item)
@@ -300,25 +307,28 @@
   
   (defmethod traverser :before ((db decl-blocker) (item declaration-item) level)
     "prepare decl-blocker-proxy to identify names"
+    (declare (ignore level))
     (with-slots (identifier) item
       (make-proxy identifier proxy)))
   
   (defmethod traverser :after ((db decl-blocker) (item declaration-item) level)
     "remove decl-blocker-proxy"
+    (declare (ignore level))
     (with-slots (identifier) item
       (del-proxy identifier)))
 )
 
-(with-proxynodes (proxy)
+;;TODO ENABLE
+(with-proxynodes (tmp-proxy)
   "find genuine identifier in array reference"
   
-  (defproxymethod :before (db decl-blocker) proxy 
+  (defproxymethod :before (db decl-blocker) tmp-proxy 
     "array[indizes] -> both are 'name', set 'false' for indizes on stack"
     (with-slots (in-decl in-decl-item) db
       (if (first in-decl)
 	  (push nil in-decl-item))))
 
-  (defproxymethod :after (db decl-blocker) proxy
+  (defproxymethod :after (db decl-blocker) tmp-proxy
     "pop last item on in-decl stack of decl-blocker"
     (with-slots (in-decl in-decl-item) db
       (if (first in-decl)
@@ -326,17 +336,20 @@
 
   (defmethod traverser :before ((db decl-blocker) (item array-reference) level)
     "add proxy do distinct array from indizes"
+    (declare (ignore level))
     (with-slots (indizes) item
-      (make-proxy indizes proxy)))
+      (make-proxy indizes tmp-proxy)))
 
   (defmethod traverser :after ((db decl-blocker) (item array-reference) level)
     "remove proxy..."
+    (declare (ignore level))
     (with-slots (indizes) item
       (del-proxy indizes)))
 )
 
 (defmethod traverser :before ((db decl-blocker) (item declaration-list) level)
   "prepare empty lists and a nil-value for further traversing"
+  (declare (ignore level))
   (with-slots (delta-names make-block in-decl in-decl-item) db
     (push nil delta-names)
     (push nil make-block)
@@ -345,6 +358,7 @@
 
 (defmethod traverser :after ((db decl-blocker) (item declaration-list) level)
   "check values in decl-blocker and set brackets to 'true' or 'nil'"
+  (declare (ignore level))
   (with-slots (names delta-names make-block in-decl in-decl-item) db
     (if (first make-block)
 	(progn
@@ -363,6 +377,7 @@
   "create method which prepares decl-blocker stacks"
   `(defmethod traverser :before ((db decl-blocker) (item ,node-class) level)
      "prepare empty decl-blocker stacks and values"
+     (declare (ignore level))
      (with-slots (names) db
        (push (make-hash-table) names))))
 
@@ -370,6 +385,7 @@
   "creates method which cleans decl-blocker stacks"
   `(defmethod traverser :after ((db decl-blocker) (item ,node-class) level)
      "clean up decl-blocker stack and values"
+     (declare (ignore level))
      (with-slots (names) db
        (pop names))))
 
@@ -378,7 +394,7 @@
 	      `(progn (eval (prepare-blocker-stacks ,i))
 	      	      (eval (clean-blocker-stacks ,i))))))
 
-(decl-blocker-extra-nodes function-definition struct-definition for-statement)
+(decl-blocker-extra-nodes function-definition struct-definition for-statement compound-statement)
 
 ;;; This traverser hides "{}" in ifs where possible
 (defclass if-blocker ()
@@ -394,6 +410,7 @@
 
   (defmethod traverser :before ((ib if-blocker) (item if-statement) level)
     "add proxy-node to if- and else-body; add stack infos; check nested-if"
+    (declare (ignore level))
     (with-slots (if-body else-body) item
       (with-slots (self-else child-else) ib
 	(if else-body
@@ -409,6 +426,7 @@
   
   (defmethod traverser :after ((ib if-blocker) (item if-statement) level)
     "clean up proxy-nodes and stack"
+    (declare (ignore level))
     (with-slots (if-body else-body) item
       (with-slots (self-else child-else) ib
   	(del-proxy if-body)
@@ -440,6 +458,7 @@
 
 (defmethod traverser :before ((ib if-blocker) (item compound-statement) level)
   "prepare stacks, count statements"
+  (declare (ignore level))
   (with-slots (parent-node statement-count first-statement force-brackets) ib
     (with-slots (statement-list) item
       (push t first-statement)
@@ -449,6 +468,7 @@
 
 (defmethod traverser :after ((ib if-blocker) (item compound-statement) level)
   "decide wheter to print brackets or not"
+  (declare (ignore level))
   (with-slots (parent-node statement-count first-statement self-else child-else force-brackets) ib
     (with-slots (statement-list brackets) item
       (pop parent-node)
@@ -471,12 +491,14 @@
 
 (defmethod traverser :before ((ib if-blocker) (item declaration-list) level)
   "set force-brackets (to t) if declartion-list found"
+  (declare (ignore level))
   (with-slots (force-brackets) ib
     (if force-brackets
 	(setf (first force-brackets) t))))
 
 (defmethod traverser :before ((ib if-blocker) (item nodelist) level)
   "check nodelists, which belong to a compound-statement"
+  (declare (ignore level))
   (with-slots (statement-count first-statement) ib
     (with-slots (nodes) item
       (if (first first-statement)
@@ -493,12 +515,14 @@
   
   (defmethod traverser :before ((eit else-if-traverser) (item if-statement) level)
     "add else-if-proxy to else-body"
+    (declare (ignore level))
     (with-slots (else-body) item
       (if else-body
 	  (make-proxy else-body else-if-proxy))))
 
   (defmethod traverser :after ((eit else-if-traverser) (item if-statement) level)
     "clean up proxy nodes (else-if-proxy"
+    (declare (ignore level))
     (with-slots (else-body) item
       (if else-body
 	  (del-proxy else-body))))
@@ -516,6 +540,7 @@
 (defclass nodelist-traverser ()())
 (defmethod traverser :before ((nt nodelist-traverser) (item nodelist) level)
   "remove unecessary nodelists, needed for correct if-block brackets"
+  (declare (ignore level))
   (with-slots (nodes) item
     (loop do
 	 (if (not (= (length nodes) 1))
@@ -541,6 +566,7 @@
    (result :initform nil)))
 
 (defmethod traverser :before ((copy copy-traverser) (item node) level)
+  (declare (ignore level))
   (with-slots (stack) copy
     (push '() stack)))
 
@@ -558,15 +584,17 @@
 					     :subnodes '(nodes)))
 	      (progn
 		(setf node-copy (allocate-instance node-type))
-		(dolist (slot (mapcar #'sb-pcl::slot-definition-name (sb-pcl::class-slots node-type)))
-		  (when (slot-boundp item slot)
-		    (when (eq (slot-value item slot) nil)
-		      (setf subnodes (remove slot subnodes))) 
-		    (let ((position (position slot subnodes)))
-		      (setf (slot-value node-copy slot)
-			    (if position
-				(nth position subnode-copies)
-				(slot-value item slot))))))))
+		))
+		;;TODO fix for clozure
+		;; (dolist (slot (mapcar #'sb-pcl::slot-definition-name (sb-pcl::class-slots node-type)))
+		;;   (when (slot-boundp item slot)
+		;;     (when (eq (slot-value item slot) nil)
+		;;       (setf subnodes (remove slot subnodes))) 
+		;;     (let ((position (position slot subnodes)))
+		;;       (setf (slot-value node-copy slot)
+		;; 	    (if position
+		;; 		(nth position subnode-copies)
+		;; 		(slot-value item slot))))))))
 	  (if (eq level 0)
 	      (setf result node-copy)
 	      (push node-copy (first stack))))))))
