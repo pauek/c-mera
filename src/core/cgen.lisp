@@ -40,8 +40,8 @@
 		     (t
 		      (if (gethash (class-of evaluated) *node*)
 			  (setf nodes (append nodes (list  evaluated))))))))))
-    (error (err) (format *error-output* "~a" err)
-	 (ccl::quit)))
+      #+clozure (error (err) (let ((*print-pretty* t)) 
+			       (format *error-output* "~a" err))))
     (pop *current-file*)
     (pop *chars-per-line*)
     nodes))
