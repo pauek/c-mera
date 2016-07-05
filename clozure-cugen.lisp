@@ -1,0 +1,8 @@
+(require :asdf)
+(require :cgen "cgen.asd")
+(require :cgen)
+(require :cxxgen)
+(require :cugen)
+(require :cg-user)
+(cgen::save "ccl-cugen")
+(quit)
