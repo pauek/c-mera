@@ -23,6 +23,8 @@
 			     (format stream "'\\r'"))
 			    ((eql val #\newline)
 			     (format stream "'\\n'"))
+			    ((eql val #\')
+			     (format stream "'\\''"))
 			    (t (format stream "'~a'" val))))
 
 			 ;;((floatp val) (format stream "~,5f" val))
@@ -56,9 +58,9 @@
 		  (eql (top-info) 'if)
 		  (eql (top-info) 'else))
 	      (format stream "{~%")
-	      (format stream "~&~a{~%" indent))))
-    ;; (if (eql (top-info) 'else)
-    ;;     (push-info 'block))))
+	      (format stream "~&~a{~%" indent))
+	  ;(if (eql (top-info) 'else)
+	      (push-info 'block)))
     ++indent)
 
   (defprettymethod :after compound-statement
