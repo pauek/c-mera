@@ -292,6 +292,7 @@
       (del-proxy members)
       (if (or (eql (top-info) 'infix)
 	      (eql (top-info) 'oref)
+		  (eql (top-info) 'not)
 	      (eql (top-info) 'cast))
 	  (format stream ")")))
     
