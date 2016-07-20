@@ -52,9 +52,7 @@
 
 (cl:defpackage :cg-swap
   (:use)
-  ;;#+clozure (:import-from :ccl &lexpr)
   (:import-from :common-lisp :nil :&body :&rest :&optional))
-
 
 (asdf:defsystem cgen
   :name "cgen"
