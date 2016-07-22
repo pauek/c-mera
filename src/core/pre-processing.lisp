@@ -20,6 +20,7 @@
 	    (eql item 'cg-user::&key)
 		(eql item 'cg-user::&environment)
 	    (eql item 'cg-user::&body)
+	    (eql item 'cg-user::&environment)
 	    (eql item 'cg-user::&rest))
 	item)
        ((and (> (length (symbol-name item)) 1)
@@ -33,6 +34,7 @@
 	(let* ((name-string (symbol-name item))
 		   (num-pos (position-if #'numberp (mapcar #'digit-char-p (coerce name-string 'list))))
 		   (f-pos (search "F" name-string :from-end t))
+		   (-pos  (search "-" name-string))
 	       (dot-pos2 (search "." name-string)) ;hack
 	       (dot-pos (search "." name-string :from-end t))
 	       (arrow-pos (search "->" name-string :from-end t))
@@ -40,6 +42,7 @@
 	  (labels ((pos-cond (a b c) (if a (and (if b (> a b) t) (if c (> a c) t)) nil)))
 	    (cond
 		  ((and (eql f-pos (- (length name-string) 1)) (or (eql num-pos 0)
+														   (eql -pos 0)
 														   (eql dot-pos2 0)))
 		   (read-float item))
 	      ((pos-cond dot-pos arrow-pos bracket-pos) (split-oref item quote-it))
