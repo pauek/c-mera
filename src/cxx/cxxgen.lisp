@@ -167,7 +167,7 @@
 	  (format stream ", ")))))
 
 ;; Override c-type
-;; enables more coples types. e.g. templates
+;; enables more coplex types. e.g. templates
 (defelement c-type () (type) (type)
   (let ((type (cond ((symbolp type) (clear type '(#\& #\*)))
 		    ((listp type) (first (reverse (flatten type))))
@@ -230,8 +230,8 @@
 (defstatement using-namespace (using-namespace) (namespace) (tag namespace)
   (make-instance 'using-namespace
 		 :namespace namespace
-		 :values '(namespace)
-		 :subnodes '()))
+		 :values '()
+		 :subnodes '(namespace)))
 
 (defstatement using (using item) (item) (tag item)
   (make-instance 'using
@@ -317,18 +317,18 @@
     (format stream ";~%")))
 
 (with-pp
-    (defprettymethod :before from-namespace
-      (push-info 'from-namespace))
+    ;; (defprettymethod :before from-namespace
+    ;;   (push-info 'from-namespace))
     (defprettymethod :self from-namespace
       (if (slot-value item 'namespace)
 	  (format stream "~a::" (slot-value item 'namespace))
-	  (format stream "::")))
-    (defprettymethod :after from-namespace
-      (pop-info)
-      (if (and (not (eql (top-info) 'from-namespace))
-	       (not (eql (top-info) 'using))
-	       (not (eql (top-info) 'cgen::funcall-function)))
-	  (format stream " "))))
+	  (format stream "::"))))
+    ;; (defprettymethod :after from-namespace
+    ;;   (pop-info)
+;; (if (and (not (eql (top-info) 'from-namespace))
+;;       (not (eql (top-info) 'using))
+;;       (not (eql (top-info) 'cgen::funcall-function)))
+;;     (format stream " "))))
     
 (with-pp
   (with-proxynodes (template-parameters)
@@ -404,10 +404,10 @@
 
 
 (defnodemacro using (item)
-  `(make-node (list 'using ',item)))
+  `(make-node (list 'using ,(if (listp item) item `',item))))
 
 (defnodemacro using-namespace (item)
-  `(make-node (list 'using-namespace ',item)))
+  `(make-node (list 'using-namespace ,(if (listp item) item `',item))))
 
 (defnodemacro template (template-parameters &body body)
   (let* ((parameter-names (loop for i in template-parameters collect (cgen::get-declaration-name i)))
@@ -424,6 +424,16 @@
 
 (defnodemacro new (&rest object)
   `(make-node (list 'new (make-node ,@object))))
+
+(defnodemacro from-namespace (namespace &rest rest)
+  (let ((namespace-cascade (first (last rest))))
+    (loop for i in (rest (reverse rest)) do
+      (setf namespace-cascade `(make-node (list 'from-namespace ,i ,namespace-cascade))))
+    (setf namespace-cascade `(make-node (list 'from-namespace ,(if namespace
+								   namespace
+								   nil)
+					      ,namespace-cascade)))
+    namespace-cascade))
 
 ;;; Make sure the decl-blocker-traverser handles classes correctly.
 (cgen::decl-blocker-extra-nodes cxx-class)
